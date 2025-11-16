@@ -23,9 +23,11 @@ public class ImportServlet extends HttpServlet {
 
         List<Supplier> suppliers = importService.getAllSuppliers();
         List<SparePart> parts = importService.getAllParts();
+        List<Discount> discounts = importService.getAvailableDiscounts();
 
         request.setAttribute("suppliers", suppliers);
         request.setAttribute("parts", parts);
+        request.setAttribute("discounts", discounts);
 
         request.getRequestDispatcher("/view/import-form.jsp").forward(request, response);
     }
@@ -116,6 +118,17 @@ public class ImportServlet extends HttpServlet {
         try {
             int supplierId = Integer.parseInt(request.getParameter("supplierId"));
 
+            // Get discount ID if provided
+            int discountId = 0;
+            String discountIdParam = request.getParameter("discountId");
+            if (discountIdParam != null && !discountIdParam.trim().isEmpty()) {
+                try {
+                    discountId = Integer.parseInt(discountIdParam);
+                } catch (NumberFormatException e) {
+                    discountId = 0;
+                }
+            }
+
             List<ImportItem> items = new ArrayList<>();
             String[] partIds = request.getParameterValues("partId[]");
             String[] quantities = request.getParameterValues("quantity[]");
@@ -133,7 +146,7 @@ public class ImportServlet extends HttpServlet {
                 }
             }
 
-            ImportResult result = importService.processImport(supplierId, items);
+            ImportResult result = importService.processImport(supplierId, items, discountId);
 
             request.setAttribute("importResult", result);
 

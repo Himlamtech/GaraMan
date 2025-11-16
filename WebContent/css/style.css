@@ -961,3 +961,127 @@ body {
   align-items: center;
   justify-content: center;
 }
+/* Discount Section Styles */
+.discount-section {
+  background: #f9fdf6;
+  border: 2px solid var(--primary-light);
+  padding: 1.5rem !important;
+}
+
+.discount-section h3 {
+  color: var(--primary);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  cursor: pointer;
+  font-weight: 500;
+  color: #333;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.price-summary {
+  background: var(--white);
+  padding: 1.5rem;
+  border-radius: 0.4rem;
+  border: 2px solid var(--border);
+  margin-top: 1rem;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 0;
+  font-size: 1rem;
+}
+
+.summary-row span {
+  color: #666;
+  font-weight: 400;
+}
+
+.summary-row strong {
+  color: #333;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.summary-row.discount-row {
+  border-top: 1px dashed var(--border);
+  border-bottom: 1px dashed var(--border);
+  margin: 0.5rem 0;
+}
+
+.summary-row.discount-row .discount-amount {
+  color: #f44336;
+}
+
+.summary-row.total-row {
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+  border-top: 2px solid var(--dark);
+}
+
+.summary-row.total-row strong {
+  font-size: 1.4rem;
+  color: var(--primary);
+}
+
+/* Invoice Summary Styles */
+.invoice-summary {
+  margin-top: 2rem;
+  background: var(--light);
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+}
+
+.invoice-summary .summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 0;
+  font-size: 1rem;
+}
+
+.invoice-summary .summary-row span {
+  color: #666;
+  font-weight: 500;
+}
+
+.invoice-summary .summary-row strong {
+  color: #333;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.invoice-summary .summary-row.discount-row {
+  border-top: 1px dashed #ccc;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+}
+
+.invoice-summary .summary-row.discount-row .discount-amount {
+  color: #f44336;
+  font-weight: 700;
+}
+
+.invoice-summary .summary-row.total-row {
+  border-top: 3px solid var(--dark);
+  margin-top: 1rem;
+  padding-top: 1rem;
+  font-size: 1.1rem;
+}
+
+.invoice-summary .summary-row.total-row strong {
+  font-size: 1.5rem;
+  color: var(--primary);
+  font-weight: 700;
+}

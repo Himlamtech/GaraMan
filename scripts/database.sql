@@ -33,15 +33,34 @@ CREATE TABLE tbl_supplier (
   status INT DEFAULT 1
 );
 
+-- Table: Discount
+CREATE TABLE tbl_discount (
+  discountId INT PRIMARY KEY AUTO_INCREMENT,
+  discountName VARCHAR(255) NOT NULL,
+  discountType ENUM('percentage', 'fixed') NOT NULL,
+  discountValue DECIMAL(10, 2) NOT NULL,
+  description TEXT,
+  maxUsageCount INT DEFAULT -1,
+  usageCount INT DEFAULT 0,
+  startDate DATETIME,
+  endDate DATETIME,
+  status INT DEFAULT 1,
+  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Table: ImportInvoice
 CREATE TABLE tbl_import_invoice (
   invoiceId INT PRIMARY KEY AUTO_INCREMENT,
   supplierId INT NOT NULL,
   invoiceDate DATETIME DEFAULT CURRENT_TIMESTAMP,
   totalAmount DECIMAL(15, 2),
+  discountId INT,
+  discountAmount DECIMAL(15, 2) DEFAULT 0,
+  finalAmount DECIMAL(15, 2),
   note TEXT,
   status INT DEFAULT 1,
-  FOREIGN KEY (supplierId) REFERENCES tbl_supplier(supplierId)
+  FOREIGN KEY (supplierId) REFERENCES tbl_supplier(supplierId),
+  FOREIGN KEY (discountId) REFERENCES tbl_discount(discountId)
 );
 
 -- Table: ImportInvoiceDetail
@@ -108,4 +127,13 @@ INSERT INTO tbl_supplier (supplierName, address, phone, email) VALUES
 ('Global Motors Parts', '321 Pine Street, Business Park', '555-0004', 'orders@globalmotors.com'),
 ('Premium Auto Components', '654 Maple Drive, Tech Hub', '555-0005', 'support@premiumauto.com'),
 ('FastParts Warehouse', '987 Cedar Lane, Logistics Center', '555-0006', 'warehouse@fastparts.com');
+
+-- Sample Discount Data
+INSERT INTO tbl_discount (discountName, discountType, discountValue, description, maxUsageCount, startDate, endDate) VALUES
+('New Year Sale', 'percentage', 10.00, 'Special 10% discount for New Year season', 100, '2025-01-01', '2025-01-31'),
+('Supplier Special', 'fixed', 50.00, 'Fixed $50 off for bulk orders', -1, '2025-01-01', '2025-12-31'),
+('Spring Promotion', 'percentage', 15.00, '15% off for spring season', 50, '2025-03-01', '2025-05-31'),
+('VIP Client Discount', 'percentage', 20.00, 'Exclusive 20% discount for VIP clients', 30, '2025-01-01', '2025-12-31'),
+('Early Bird Special', 'fixed', 25.00, '$25 off for early orders', 200, '2025-01-01', '2025-06-30');
+
 

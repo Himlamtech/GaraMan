@@ -130,6 +130,50 @@
                                         style="margin-top: 1rem;">+ Add Another Item</button>
                                 </div>
 
+                                <!-- Discount Section -->
+                                <div class="form-section discount-section">
+                                    <h3>Apply Discount (Optional)</h3>
+
+                                    <div class="form-group">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="applyDiscountCheck" onchange="toggleDiscount()">
+                                            <span>Apply discount to this import</span>
+                                        </label>
+                                    </div>
+
+                                    <div id="discountOptions" style="display: none;">
+                                        <div class="form-group">
+                                            <label>Discount Code</label>
+                                            <select name="discountId" id="discountSelect" class="form-control"
+                                                onchange="calculateTotal()">
+                                                <option value="">-- Select Discount --</option>
+                                                <c:forEach items="${discounts}" var="discount">
+                                                    <option value="${discount.discountId}"
+                                                        data-type="${discount.discountType}"
+                                                        data-value="${discount.discountValue}">
+                                                        ${discount.displayText} - ${discount.usageInfo} used
+                                                    </option>
+                                                </c:forEach>
+                                            </select>
+                                        </div>
+
+                                        <div class="price-summary">
+                                            <div class="summary-row">
+                                                <span>Subtotal:</span>
+                                                <strong id="subtotalDisplay">$0.00</strong>
+                                            </div>
+                                            <div class="summary-row discount-row">
+                                                <span>Discount:</span>
+                                                <strong id="discountDisplay" class="discount-amount">-$0.00</strong>
+                                            </div>
+                                            <div class="summary-row total-row">
+                                                <span>Total:</span>
+                                                <strong id="totalDisplay">$0.00</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="form-actions">
                                     <button type="submit" class="btn btn-primary">Process Import</button>
                                     <a href="${pageContext.request.contextPath}/import"
@@ -367,7 +411,75 @@
                     const price = select.options[select.selectedIndex].dataset.price;
                     const priceInput = select.closest('.item-row').querySelector('input[name="price[]"]');
                     if (price) priceInput.value = price;
+                    calculateTotal();
                 }
+
+                // Discount Functions
+                function toggleDiscount() {
+                    const checkbox = document.getElementById('applyDiscountCheck');
+                    const discountOptions = document.getElementById('discountOptions');
+                    const discountSelect = document.getElementById('discountSelect');
+
+                    if (checkbox.checked) {
+                        discountOptions.style.display = 'block';
+                    } else {
+                        discountOptions.style.display = 'none';
+                        discountSelect.value = '';
+                    }
+                    calculateTotal();
+                }
+
+                function calculateTotal() {
+                    // Calculate subtotal from all items
+                    let subtotal = 0;
+                    const items = document.querySelectorAll('.import-item');
+
+                    items.forEach(item => {
+                        const quantity = parseFloat(item.querySelector('input[name="quantity[]"]').value) || 0;
+                        const price = parseFloat(item.querySelector('input[name="price[]"]').value) || 0;
+                        subtotal += quantity * price;
+                    });
+
+                    // Get discount if selected
+                    const discountSelect = document.getElementById('discountSelect');
+                    const checkbox = document.getElementById('applyDiscountCheck');
+                    let discountAmount = 0;
+
+                    if (checkbox && checkbox.checked && discountSelect && discountSelect.value) {
+                        const selectedOption = discountSelect.options[discountSelect.selectedIndex];
+                        const discountType = selectedOption.getAttribute('data-type');
+                        const discountValue = parseFloat(selectedOption.getAttribute('data-value'));
+
+                        if (discountType === 'percentage') {
+                            discountAmount = subtotal * discountValue / 100;
+                        } else {
+                            discountAmount = Math.min(discountValue, subtotal);
+                        }
+                    }
+
+                    const total = subtotal - discountAmount;
+
+                    // Update display
+                    const subtotalDisplay = document.getElementById('subtotalDisplay');
+                    const discountDisplay = document.getElementById('discountDisplay');
+                    const totalDisplay = document.getElementById('totalDisplay');
+
+                    if (subtotalDisplay) subtotalDisplay.textContent = '$' + subtotal.toFixed(2);
+                    if (discountDisplay) discountDisplay.textContent = '-$' + discountAmount.toFixed(2);
+                    if (totalDisplay) totalDisplay.textContent = '$' + total.toFixed(2);
+                }
+
+                // Add event listeners for real-time calculation
+                document.addEventListener('DOMContentLoaded', function () {
+                    const itemsContainer = document.getElementById('itemsContainer');
+                    if (itemsContainer) {
+                        itemsContainer.addEventListener('input', function (e) {
+                            if (e.target.name === 'quantity[]' || e.target.name === 'price[]') {
+                                calculateTotal();
+                            }
+                        });
+                    }
+                });
 
                 // Form Submit Validation
                 document.getElementById('importForm').onsubmit = function () {

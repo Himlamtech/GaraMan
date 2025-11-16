@@ -10,6 +10,7 @@ public class ImportService {
     private SparePartDAOImpl partDAO = new SparePartDAOImpl();
     private ImportInvoiceDAOImpl invoiceDAO = new ImportInvoiceDAOImpl();
     private ImportInvoiceDetailDAOImpl detailDAO = new ImportInvoiceDetailDAOImpl();
+    private DiscountDAOImpl discountDAO = new DiscountDAOImpl();
 
     public List<Supplier> getAllSuppliers() {
         return supplierDAO.getAll();
@@ -49,7 +50,19 @@ public class ImportService {
         return partDAO.insert(part);
     }
 
+    public List<Discount> getAvailableDiscounts() {
+        return discountDAO.getAllActive();
+    }
+
+    public Discount getDiscountById(int discountId) {
+        return discountDAO.getById(discountId);
+    }
+
     public ImportResult processImport(int supplierId, List<ImportItem> items) {
+        return processImport(supplierId, items, 0);
+    }
+
+    public ImportResult processImport(int supplierId, List<ImportItem> items, int discountId) {
         ImportResult result = new ImportResult();
 
         if (items == null || items.isEmpty()) {
@@ -97,15 +110,49 @@ public class ImportService {
                 }
             }
 
-            // Update invoice total
-            invoiceDAO.updateTotalAmount(invoiceId, totalAmount);
+            // Handle discount if provided
+            double discountAmount = 0;
+            double finalAmount = totalAmount;
+            Discount discount = null;
+
+            if (discountId > 0) {
+                discount = discountDAO.getById(discountId);
+                if (discount != null && discount.isActive()) {
+                    discountAmount = discount.calculateDiscount(totalAmount);
+                    finalAmount = totalAmount - discountAmount;
+
+                    // Update invoice with discount info
+                    invoiceDAO.updateDiscount(invoiceId, discountId, discountAmount, finalAmount);
+
+                    // Increment discount usage count
+                    discountDAO.incrementUsageCount(discountId);
+                } else {
+                    // Invalid discount, just save without it
+                    invoiceDAO.updateTotalAmount(invoiceId, totalAmount);
+                    finalAmount = totalAmount;
+                }
+            } else {
+                // No discount applied
+                invoiceDAO.updateTotalAmount(invoiceId, totalAmount);
+            }
 
             result.success = true;
             result.invoiceId = invoiceId;
             result.totalAmount = totalAmount;
+            result.discountAmount = discountAmount;
+            result.finalAmount = finalAmount;
             result.itemsProcessed = detailCount;
-            result.message = "Import successful: " + detailCount + " items, Total: $"
-                    + String.format("%.2f", totalAmount);
+            result.discountName = (discount != null) ? discount.getDiscountName() : null;
+
+            if (discountAmount > 0) {
+                result.message = "Import successful: " + detailCount + " items, Subtotal: $"
+                        + String.format("%.2f", totalAmount) + ", Discount: -$"
+                        + String.format("%.2f", discountAmount) + ", Total: $"
+                        + String.format("%.2f", finalAmount);
+            } else {
+                result.message = "Import successful: " + detailCount + " items, Total: $"
+                        + String.format("%.2f", totalAmount);
+            }
 
             return result;
 
@@ -133,6 +180,9 @@ public class ImportService {
         public boolean success;
         public int invoiceId;
         public double totalAmount;
+        public double discountAmount;
+        public double finalAmount;
+        public String discountName;
         public int itemsProcessed;
         public String message;
 
@@ -146,6 +196,18 @@ public class ImportService {
 
         public double getTotalAmount() {
             return totalAmount;
+        }
+
+        public double getDiscountAmount() {
+            return discountAmount;
+        }
+
+        public double getFinalAmount() {
+            return finalAmount;
+        }
+
+        public String getDiscountName() {
+            return discountName;
         }
 
         public int getItemsProcessed() {
