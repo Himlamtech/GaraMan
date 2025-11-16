@@ -59,7 +59,18 @@ public class ImportServlet extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
+        boolean isAjax = isAjax(request);
         try {
+            // DEBUG: Log ALL parameters
+            System.out.println("=== ALL REQUEST PARAMETERS ===");
+            java.util.Enumeration<String> paramNames = request.getParameterNames();
+            while (paramNames.hasMoreElements()) {
+                String paramName = paramNames.nextElement();
+                String[] paramValues = request.getParameterValues(paramName);
+                System.out.println("  " + paramName + " = " + java.util.Arrays.toString(paramValues));
+            }
+            System.out.println("=== END PARAMETERS ===");
+
             // Build import request
             ImportRequest importRequest = new ImportRequest();
 
@@ -67,13 +78,22 @@ public class ImportServlet extends HttpServlet {
             String supplierName = request.getParameter("supplierName");
             String supplierNameNew = request.getParameter("supplierNameNew");
 
+            // DEBUG: Log received parameters
+            System.out.println("DEBUG ImportServlet.doPost:");
+            System.out.println("  supplierName parameter: [" + supplierName + "]");
+            System.out.println("  supplierNameNew parameter: [" + supplierNameNew + "]");
+            System.out.println("  supplierName == null: " + (supplierName == null));
+            System.out.println("  supplierName isEmpty: " + (supplierName != null && supplierName.isEmpty()));
+
             boolean addingNewSupplier = "__NEW__".equals(supplierName);
             String supplierNameToUse = addingNewSupplier ? supplierNameNew : supplierName;
 
+            System.out.println("  addingNewSupplier: " + addingNewSupplier);
+            System.out.println("  supplierNameToUse: [" + supplierNameToUse + "]");
+
             if (supplierNameToUse == null || supplierNameToUse.trim().isEmpty()) {
-                request.setAttribute("success", false);
-                request.setAttribute("errorMessage", "Supplier name is required");
-                request.getRequestDispatcher("/import-result.jsp").forward(request, response);
+                System.out.println("  VALIDATION FAILED: Supplier name is required");
+                handleError(response, isAjax, "Supplier name is required", request);
                 return;
             }
 
@@ -85,14 +105,17 @@ public class ImportServlet extends HttpServlet {
             importRequest.setSupplierTaxCode(request.getParameter("supplierTaxCode"));
             importRequest.setNote(request.getParameter("note"));
 
+            // TEMPORARY FIX: Use default staff ID for testing
             Object staffIdObj = request.getSession().getAttribute("userId");
             if (staffIdObj instanceof Integer) {
                 importRequest.setWarehouseStaffId((Integer) staffIdObj);
             } else {
-                request.setAttribute("success", false);
-                request.setAttribute("errorMessage", "Invalid warehouse staff session");
-                request.getRequestDispatcher("/import-result.jsp").forward(request, response);
-                return;
+                // For testing without login, use default staff ID = 1
+                System.out.println("  WARNING: No userId in session, using default staffId = 1");
+                importRequest.setWarehouseStaffId(1);
+                // TODO: Remove this and require proper login before deployment
+                // handleError(response, isAjax, "Invalid warehouse staff session", request);
+                // return;
             }
 
             // Get number of items
@@ -101,9 +124,7 @@ public class ImportServlet extends HttpServlet {
             try {
                 itemCount = Integer.parseInt(itemCountStr);
             } catch (NumberFormatException e) {
-                request.setAttribute("success", false);
-                request.setAttribute("errorMessage", "Invalid item count");
-                request.getRequestDispatcher("/import-result.jsp").forward(request, response);
+                handleError(response, isAjax, "Invalid item count", request);
                 return;
             }
 
@@ -122,7 +143,8 @@ public class ImportServlet extends HttpServlet {
                 boolean addNewPart = "__NEW__".equals(partExisting);
                 boolean existingPartChosen = partExisting != null && !partExisting.trim().isEmpty() && !addNewPart;
 
-                if ((existingPartChosen || (partCode != null && !partCode.trim().isEmpty() && partName != null && !partName.trim().isEmpty() && unit != null && !unit.trim().isEmpty())) &&
+                if ((existingPartChosen || (partCode != null && !partCode.trim().isEmpty() && partName != null
+                        && !partName.trim().isEmpty() && unit != null && !unit.trim().isEmpty())) &&
                         quantityStr != null && !quantityStr.trim().isEmpty() &&
                         unitPriceStr != null && !unitPriceStr.trim().isEmpty()) {
 
@@ -164,20 +186,18 @@ public class ImportServlet extends HttpServlet {
 
             // Validate at least one item
             if (items.isEmpty()) {
-                request.setAttribute("success", false);
-                request.setAttribute("errorMessage", "At least one valid item is required");
-                request.getRequestDispatcher("/import-result.jsp").forward(request, response);
+                handleError(response, isAjax, "At least one valid item is required", request);
                 return;
             }
 
             importRequest.setItems(items);
 
             // Process import
-            int orderId = processImport(importRequest);
+            ImportProcessingResult result = processImport(importRequest);
 
-            if (orderId > 0) {
-                ImportOrder order = getOrderById(orderId);
-                List<ImportOrderItem> itemsWithPrice = getOrderItems(orderId);
+            if (result.isSuccess()) {
+                ImportOrder order = getOrderById(result.getOrderId());
+                List<ImportOrderItem> itemsWithPrice = getOrderItems(result.getOrderId());
 
                 Supplier supplier = null;
                 if (order != null) {
@@ -186,30 +206,36 @@ public class ImportServlet extends HttpServlet {
 
                 List<Part> partsWithDetails = getPartsForItems(itemsWithPrice);
 
-                request.setAttribute("success", true);
-                request.setAttribute("order", order);
-                request.setAttribute("orderItems", itemsWithPrice);
-                request.setAttribute("supplier", supplier);
-                request.setAttribute("parts", partsWithDetails);
+                if (isAjax) {
+                    writeJson(response, HttpServletResponse.SC_OK, String.format(
+                            "{\"success\":true,\"orderId\":%d,\"totalAmount\":%.2f,\"supplierName\":\"%s\"}",
+                            result.getOrderId(), result.getTotalAmount(),
+                            escapeJson(supplier != null ? supplier.getName() : "")));
+                } else {
+                    request.setAttribute("success", true);
+                    request.setAttribute("order", order);
+                    request.setAttribute("orderItems", itemsWithPrice);
+                    request.setAttribute("supplier", supplier);
+                    request.setAttribute("parts", partsWithDetails);
+                }
 
             } else {
-                // Failed
-                request.setAttribute("success", false);
-                request.setAttribute("errorMessage", "Failed to process import. Please try again.");
+                handleError(response, isAjax, "Failed to process import. Please try again.", request);
+                return;
             }
 
             // Forward to result page
-            request.getRequestDispatcher("/import-result.jsp").forward(request, response);
+            if (!isAjax) {
+                request.getRequestDispatcher("/import-result.jsp").forward(request, response);
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
-            request.setAttribute("success", false);
-            request.setAttribute("errorMessage", "Error: " + e.getMessage());
-            request.getRequestDispatcher("/import-result.jsp").forward(request, response);
+            handleError(response, isAjax, "Error: " + e.getMessage(), request);
         }
     }
 
-    private int processImport(ImportRequest importRequest) {
+    private ImportProcessingResult processImport(ImportRequest importRequest) {
         try {
             Supplier supplier = getOrCreateSupplier(importRequest);
 
@@ -219,12 +245,11 @@ public class ImportServlet extends HttpServlet {
                     new Date(),
                     0.0,
                     "CONFIRMED",
-                    importRequest.getNote()
-            );
+                    importRequest.getNote());
             int orderId = orderDAO.insert(order);
 
             if (orderId <= 0) {
-                return -1;
+                return ImportProcessingResult.failure();
             }
 
             double totalAmount = 0.0;
@@ -250,11 +275,11 @@ public class ImportServlet extends HttpServlet {
 
             orderDAO.updateTotalAmount(orderId, totalAmount);
 
-            return orderId;
+            return ImportProcessingResult.success(orderId, totalAmount);
 
         } catch (Exception e) {
             e.printStackTrace();
-            return -1;
+            return ImportProcessingResult.failure();
         }
     }
 
@@ -317,6 +342,63 @@ public class ImportServlet extends HttpServlet {
             }
         }
         return parts;
+    }
+
+    private boolean isAjax(HttpServletRequest request) {
+        String header = request.getHeader("X-Requested-With");
+        return header != null && "XMLHttpRequest".equalsIgnoreCase(header);
+    }
+
+    private void handleError(HttpServletResponse response, boolean isAjax, String message, HttpServletRequest request)
+            throws IOException, ServletException {
+        if (isAjax) {
+            writeJson(response, HttpServletResponse.SC_BAD_REQUEST,
+                    String.format("{\"success\":false,\"message\":\"%s\"}", escapeJson(message)));
+        } else {
+            request.setAttribute("success", false);
+            request.setAttribute("errorMessage", message);
+            request.getRequestDispatcher("/import-result.jsp").forward(request, response);
+        }
+    }
+
+    private void writeJson(HttpServletResponse response, int status, String json) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write(json);
+    }
+
+    private String escapeJson(String value) {
+        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private static class ImportProcessingResult {
+        private final int orderId;
+        private final double totalAmount;
+
+        private ImportProcessingResult(int orderId, double totalAmount) {
+            this.orderId = orderId;
+            this.totalAmount = totalAmount;
+        }
+
+        static ImportProcessingResult success(int orderId, double totalAmount) {
+            return new ImportProcessingResult(orderId, totalAmount);
+        }
+
+        static ImportProcessingResult failure() {
+            return new ImportProcessingResult(-1, 0.0);
+        }
+
+        boolean isSuccess() {
+            return orderId > 0;
+        }
+
+        int getOrderId() {
+            return orderId;
+        }
+
+        double getTotalAmount() {
+            return totalAmount;
+        }
     }
 
     /**

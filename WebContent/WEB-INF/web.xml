@@ -65,6 +65,16 @@
         <url-pattern>/import</url-pattern>
     </servlet-mapping>
 
+    <!-- Part API Servlet -->
+    <servlet>
+        <servlet-name>PartApiServlet</servlet-name>
+        <servlet-class>com.garaman.controller.PartApiServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PartApiServlet</servlet-name>
+        <url-pattern>/api/parts</url-pattern>
+    </servlet-mapping>
+
     <!-- Service Detail Servlet -->
     <servlet>
         <servlet-name>ServiceDetailServlet</servlet-name>
