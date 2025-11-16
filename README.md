@@ -19,10 +19,10 @@ A complete implementation of two modules using **Servlet + JSP + JDBC** without 
 ## 🏗️ Architecture
 
 Clean Architecture with 4 layers:
-- **Model**: Domain entities (Service, Part, Supplier, etc.)
+- **View**: JSP pages for presentation
+- **Controller**: Servlets handling requests/responses
 - **DAO**: Data access with JDBC
-- **Service**: Business logic
-- **Controller**: Servlets
+- **Model**: Domain entities (Service, Part, Supplier, etc.)
 
 ## 🚀 Quick Start
 
@@ -83,10 +83,9 @@ Download and place in `WebContent/WEB-INF/lib/`:
 ```
 GaraManModule/
 ├── src/com/garaman/
-│   ├── model/         # Domain entities
+│   ├── controller/    # Servlets (controllers + business flow)
 │   ├── dao/           # Data access (interfaces + impl)
-│   ├── service/       # Business logic
-│   ├── controller/    # Servlets
+│   ├── model/         # Domain entities
 │   └── util/          # Database connection
 ├── WebContent/
 │   ├── *.jsp          # Views

@@ -1,25 +1,33 @@
 package com.garaman.controller;
 
-import com.garaman.service.SearchService;
-import com.garaman.service.SearchService.SearchResult;
+import com.garaman.dao.PartDAO;
+import com.garaman.dao.PartDAOImpl;
+import com.garaman.dao.ServiceDAO;
+import com.garaman.dao.ServiceDAOImpl;
+import com.garaman.model.Part;
+import com.garaman.model.Service;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Controller: SearchServlet
  * Handles customer search for services and parts
  */
 public class SearchServlet extends HttpServlet {
-    
-    private SearchService searchService;
-    
+
+    private ServiceDAO serviceDAO;
+    private PartDAO partDAO;
+
     @Override
     public void init() throws ServletException {
-        searchService = new SearchService();
+        serviceDAO = new ServiceDAOImpl();
+        partDAO = new PartDAOImpl();
     }
     
     @Override
@@ -38,15 +46,31 @@ public class SearchServlet extends HttpServlet {
         String keyword = request.getParameter("keyword");
         String type = request.getParameter("type"); // service/part/all
         
-        // Perform search
-        SearchResult result = searchService.search(keyword, type);
+        String trimmedKeyword = keyword != null ? keyword.trim() : null;
+        boolean searchServices = type == null || "all".equalsIgnoreCase(type) || "service".equalsIgnoreCase(type);
+        boolean searchParts = type == null || "all".equalsIgnoreCase(type) || "part".equalsIgnoreCase(type);
+
+        List<Service> services = new ArrayList<>();
+        List<Part> parts = new ArrayList<>();
+
+        if (searchServices) {
+            services = (trimmedKeyword == null || trimmedKeyword.isEmpty())
+                    ? serviceDAO.getAll()
+                    : serviceDAO.search(trimmedKeyword);
+        }
+
+        if (searchParts) {
+            parts = (trimmedKeyword == null || trimmedKeyword.isEmpty())
+                    ? partDAO.getAll()
+                    : partDAO.search(trimmedKeyword);
+        }
         
         // Set attributes for JSP
         request.setAttribute("keyword", keyword);
         request.setAttribute("type", type);
-        request.setAttribute("services", result.getServices());
-        request.setAttribute("parts", result.getParts());
-        request.setAttribute("hasResults", result.hasResults());
+        request.setAttribute("services", services);
+        request.setAttribute("parts", parts);
+        request.setAttribute("hasResults", !services.isEmpty() || !parts.isEmpty());
         
         // Forward to search results page
         request.getRequestDispatcher("/search-result.jsp").forward(request, response);

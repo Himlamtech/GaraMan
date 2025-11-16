@@ -1,7 +1,8 @@
 package com.garaman.controller;
 
+import com.garaman.dao.UserDAO;
+import com.garaman.dao.UserDAOImpl;
 import com.garaman.model.User;
-import com.garaman.service.AuthService;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -15,12 +16,12 @@ import java.io.IOException;
  * Handles user authentication
  */
 public class LoginServlet extends HttpServlet {
-    
-    private AuthService authService;
-    
+
+    private UserDAO userDAO;
+
     @Override
     public void init() throws ServletException {
-        authService = new AuthService();
+        userDAO = new UserDAOImpl();
     }
     
     @Override
@@ -43,18 +44,17 @@ public class LoginServlet extends HttpServlet {
         
         String username = request.getParameter("username");
         String password = request.getParameter("password");
-        
-        // Validate input
-        if (username == null || username.trim().isEmpty() ||
-            password == null || password.trim().isEmpty()) {
+
+        boolean missingCredentials = username == null || username.trim().isEmpty()
+                || password == null || password.trim().isEmpty();
+        if (missingCredentials) {
             request.setAttribute("error", "Username and password are required");
             request.getRequestDispatcher("/login.jsp").forward(request, response);
             return;
         }
-        
-        // Authenticate
-        User user = authService.login(username, password);
-        
+
+        User user = userDAO.authenticate(username.trim(), password);
+
         if (user != null) {
             // Login successful - create session
             HttpSession session = request.getSession(true);
